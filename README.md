@@ -1,3 +1,18 @@
+Setup
+===
+This repo should be cloned as a submodule of SysMLProfiling
+
+Run `git submodule update --init --recursive` in SysMLProfiling to setup DLRM.
+
+You might need to install some dependencies. Assuming that the conda env is activated, run `conda install --file requirements.txt`
+
+Profile
+===
+To run profiling, use the main `profile.sh` script.
+
+For example, `./profile.sh -i 5 -m dlrm -b 64 -n`
+
+
 Deep Learning Recommendation Model for Personalization and Recommendation Systems:
 =================================================================================
 *Copyright (c) Facebook, Inc. and its affiliates.*

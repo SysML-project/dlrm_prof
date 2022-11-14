@@ -88,6 +88,10 @@ from torch.nn.parallel.replicate import replicate
 from torch.nn.parallel.scatter_gather import gather, scatter
 from torch.nn.parameter import Parameter
 from torch.optim.lr_scheduler import _LRScheduler
+
+import torch.cuda.profiler as profiler
+import torch.cuda.nvtx as nvtx
+
 import optim.rwsadagrad as RowWiseSparseAdagrad
 from torch.utils.tensorboard import SummaryWriter
 
@@ -96,6 +100,9 @@ from tricks.md_embedding_bag import PrEmbeddingBag, md_solver
 
 # quotient-remainder trick
 from tricks.qr_embedding_bag import QREmbeddingBag
+
+import pyprof
+pyprof.init()
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -1486,10 +1493,12 @@ def run():
     writer = SummaryWriter(tb_file)
 
     ext_dist.barrier()
-    with torch.autograd.profiler.profile(
-        args.enable_profiling, use_cuda=use_gpu, record_shapes=True
-    ) as prof:
+    # with torch.autograd.profiler.profile(
+    #     args.enable_profiling, use_cuda=use_gpu, record_shapes=True
+    # ) as prof:
+    with torch.autograd.profiler.emit_nvtx():
         if not args.inference_only:
+            profiler.start()
             k = 0
             total_time_begin = 0
             while k < args.nepochs:
@@ -1515,6 +1524,7 @@ def run():
                     previous_iteration_time = None
 
                 for j, inputBatch in enumerate(train_ld):
+                    nvtx.range_push("iter {}".format(j))
                     if j == 0 and args.save_onnx:
                         X_onnx, lS_o_onnx, lS_i_onnx, _, _, _ = unpack_batch(inputBatch)
 
@@ -1640,6 +1650,8 @@ def run():
                         total_iter = 0
                         total_samp = 0
 
+                    nvtx.range_pop()
+
                     # testing
                     if should_test:
                         epoch_num_float = (j + 1) / len(train_ld) + k + 1
@@ -1749,6 +1761,7 @@ def run():
                         mlperf_logger.constants.STATUS: mlperf_logger.constants.ABORTED
                     },
                 )
+            profiler.stop()
         else:
             print("Testing for inference only")
             inference(
@@ -1762,18 +1775,18 @@ def run():
             )
 
     # profiling
-    if args.enable_profiling:
-        time_stamp = str(datetime.datetime.now()).replace(" ", "_")
-        with open("dlrm_s_pytorch" + time_stamp + "_shape.prof", "w") as prof_f:
-            prof_f.write(
-                prof.key_averages(group_by_input_shape=True).table(
-                    sort_by="self_cpu_time_total"
-                )
-            )
-        with open("dlrm_s_pytorch" + time_stamp + "_total.prof", "w") as prof_f:
-            prof_f.write(prof.key_averages().table(sort_by="self_cpu_time_total"))
-        prof.export_chrome_trace("dlrm_s_pytorch" + time_stamp + ".json")
-        # print(prof.key_averages().table(sort_by="cpu_time_total"))
+    # if args.enable_profiling:
+    #     time_stamp = str(datetime.datetime.now()).replace(" ", "_")
+    #     with open("dlrm_s_pytorch" + time_stamp + "_shape.prof", "w") as prof_f:
+    #         prof_f.write(
+    #             prof.key_averages(group_by_input_shape=True).table(
+    #                 sort_by="self_cpu_time_total"
+    #             )
+    #         )
+    #     with open("dlrm_s_pytorch" + time_stamp + "_total.prof", "w") as prof_f:
+    #         prof_f.write(prof.key_averages().table(sort_by="self_cpu_time_total"))
+    #     prof.export_chrome_trace("dlrm_s_pytorch" + time_stamp + ".json")
+    #     # print(prof.key_averages().table(sort_by="cpu_time_total"))
 
     # plot compute graph
     if args.plot_compute_graph:
