@@ -104,6 +104,8 @@ from tricks.qr_embedding_bag import QREmbeddingBag
 import pyprof
 pyprof.init()
 
+import nccl_env
+
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     try:
@@ -845,15 +847,15 @@ def inference(
         validation_results = {}
         for metric_name, metric_function in metrics.items():
             validation_results[metric_name] = metric_function(targets, scores)
-            writer.add_scalar(
-                "mlperf-metrics-test/" + metric_name,
-                validation_results[metric_name],
-                log_iter,
-            )
+            # writer.add_scalar(
+            #     "mlperf-metrics-test/" + metric_name,
+            #     validation_results[metric_name],
+            #     log_iter,
+            # )
         acc_test = validation_results["accuracy"]
     else:
         acc_test = test_accu / test_samp
-        writer.add_scalar("Test/Acc", acc_test, log_iter)
+        # writer.add_scalar("Test/Acc", acc_test, log_iter)
 
     model_metrics_dict = {
         "nepochs": args.nepochs,
@@ -1489,8 +1491,8 @@ def run():
         )
         mlperf_logger.log_event(key="sgd_opt_learning_rate_decay_poly_power", value=2)
 
-    tb_file = "./" + args.tensor_board_filename
-    writer = SummaryWriter(tb_file)
+    # tb_file = "./" + args.tensor_board_filename
+    # writer = SummaryWriter(tb_file)
 
     ext_dist.barrier()
     # with torch.autograd.profiler.profile(
@@ -1645,7 +1647,7 @@ def run():
                         )
 
                         log_iter = nbatches * k + j + 1
-                        writer.add_scalar("Train/Loss", train_loss, log_iter)
+                        # writer.add_scalar("Train/Loss", train_loss, log_iter)
 
                         total_iter = 0
                         total_samp = 0
